@@ -1,13 +1,14 @@
 from typing import List
 from datetime import datetime, timedelta
 from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy import Column, ForeignKey, Integer, String, create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 from pydantic import BaseModel
 import bcrypt
 import jwt
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+
 # Swagger imports
 from fastapi.openapi.utils import get_openapi
 
@@ -48,6 +49,10 @@ class PasswordResponse(BaseModel):
     id: int
     site: str
     login: str
+    password: str
+
+class LoginForm(BaseModel):
+    username: str
     password: str
 
 # Утилита для получения сессии базы данных
@@ -115,7 +120,7 @@ def register(user: UserCreate, db: SessionLocal = Depends(get_db)):
 
 # Аутентификация пользователя и получение токена
 @app.post('/login', response_model=dict)
-def login(form_data: OAuth2PasswordRequestForm = Depends(), db: SessionLocal = Depends(get_db)):
+def login(form_data: LoginForm, db: SessionLocal = Depends(get_db)):
     token = authenticate_user(form_data.username, form_data.password, db)
     if not token:
         raise HTTPException(status_code=401, detail='Invalid username or password')
