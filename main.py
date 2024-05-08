@@ -54,7 +54,10 @@ class PasswordResponse(BaseModel):
 class LoginForm(BaseModel):
     username: str
     password: str
-
+class PasswordUpdate(BaseModel):
+    site: str = None
+    login: str = None
+    password: str = None
 # Утилита для получения сессии базы данных
 def get_db():
     db = SessionLocal()
@@ -176,3 +179,32 @@ def delete_password(password_id: int, db: SessionLocal = Depends(get_db), token:
     db.delete(password)
     db.commit()
     return {'message': 'Password deleted successfully'}
+
+@app.put('/passwords/{password_id}', response_model=PasswordResponse)
+def update_password(password_id: int, password_update: PasswordUpdate, db: SessionLocal = Depends(get_db), token: str = Depends(oauth2_scheme)):
+    try:
+        payload = jwt.decode(token, 'secret_key', algorithms=['HS256'])
+        username = payload.get('sub')
+    except jwt.exceptions.DecodeError:
+        raise HTTPException(status_code=401, detail='Invalid token')
+
+    user = db.query(User).filter(User.username == username).first()
+    if not user:
+        raise HTTPException(status_code=404, detail='User not found')
+
+    password = db.query(Password).filter(Password.id == password_id, Password.owner == user).first()
+    if not password:
+        raise HTTPException(status_code=404, detail='Password not found')
+
+    # Обновление полей пароля
+    if password_update.site:
+        password.site = password_update.site
+    if password_update.login:
+        password.login = password_update.login
+    if password_update.password:
+        password.password = password_update.password
+
+    db.commit()
+    db.refresh(password)
+
+    return {'message': 'Password updated successfully'}
